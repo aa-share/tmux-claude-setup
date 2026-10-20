@@ -1,0 +1,46 @@
+# Claude Code + tmux helpers (sourced from ~/.bashrc).
+
+# Directories whose subfolders `cs` offers as projects.
+CS_ROOTS=(~/repo ~/repo/local)
+
+# Agent view: every Claude session (interactive and background) on one screen.
+alias ca='claude agents'
+
+# cs [query]: pick a project with fzf and jump to its tmux session.
+# The session is created on first use, with a Claude session named after the
+# project started in its first window. Works inside and outside tmux.
+cs() {
+    local dir name pane
+    dir=$(find "${CS_ROOTS[@]}" -mindepth 1 -maxdepth 1 -type d ! -name '.*' 2>/dev/null \
+        | sed "s|^$HOME/repo/||" | sort -u \
+        | fzf --query="$1" --select-1 --exit-0 --prompt='project> ' \
+            --preview "ls -A --color=always $HOME/repo/{}") || return
+    name=${dir//[\/.:]/-}
+    dir=$HOME/repo/$dir
+
+    if ! tmux has-session -t "=$name" 2>/dev/null; then
+        pane=$(tmux new-session -d -s "$name" -c "$dir" -P -F '#{pane_id}') || return
+        tmux send-keys -t "$pane" "claude -n $(printf %q "$name")" Enter
+    fi
+    if [ -n "$TMUX" ]; then
+        tmux switch-client -t "=$name"
+    else
+        tmux attach-session -t "=$name"
+    fi
+}
+
+# cw <name>: start another named Claude session in a new tmux window, same directory.
+# Outside tmux it just starts the named session here.
+cw() {
+    local pane
+    if [ -z "$1" ]; then
+        echo "usage: cw <session-name>" >&2
+        return 1
+    fi
+    if [ -z "$TMUX" ]; then
+        claude -n "$1"
+        return
+    fi
+    pane=$(tmux new-window -c "$PWD" -P -F '#{pane_id}') || return
+    tmux send-keys -t "$pane" "claude -n $(printf %q "$1")" Enter
+}

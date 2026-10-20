@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Terminal entry point (bound to Super+T): open the persistent tmux workspace.
+# The first terminal attaches to the "main" session. Further terminals open a
+# grouped view of it (same windows, independent current window) that goes away
+# when that terminal closes, while the windows themselves keep running.
+
+if tmux has-session -t '=main' 2>/dev/null &&
+    [ "$(tmux display-message -p -t '=main:' '#{session_attached}')" -gt 0 ]; then
+    exec tmux new-session -t '=main' \; set-option destroy-unattached on
+fi
+exec tmux new-session -A -s main
