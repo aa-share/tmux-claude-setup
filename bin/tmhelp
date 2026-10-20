@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# tmhelp: show the tmux cheat sheet (~/.tmux-help.md), rendered with glow.
+# Extra arguments go to glow, e.g. `tmhelp -p` to read it in a pager
+# (the prefix + H popup does that). Without glow it opens in less.
+
+doc=~/.tmux-help.md
+
+if command -v glow >/dev/null; then
+    exec glow -w "$(tput cols 2>/dev/null || echo 100)" "$@" "$doc"
+fi
+exec less "$doc"
