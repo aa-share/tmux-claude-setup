@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# cgrep [text...]: search the conversation of the Claude session in the current
+# tmux window (outside tmux: the newest session started in this directory).
+# Claude Code draws on the alternate screen, so tmux copy-mode search can't see
+# its answers; this reads the session transcript instead.
+# On a terminal it opens the conversation in less at the latest match
+# (n / N: older / newer match); piped, it prints the matching lines.
+
+pattern=$*
+registry=(~/.claude/sessions/*.json)
+
+# The registry records each live session's tmux pane as "session:@window.%pane".
+# Our own pane's window; in a popup (no TMUX_PANE), the client's current window.
+if [ -n "$TMUX" ]; then
+    window=$(tmux display-message -p ${TMUX_PANE:+-t "$TMUX_PANE"} '#{window_id}')
+    sid=$(jq -rs --arg w ":$window." \
+        '[.[] | select((.tmux // "") | contains($w))] | sort_by(.updatedAt) | last | .sessionId // empty' \
+        "${registry[@]}" 2>/dev/null)
+fi
+if [ -z "$sid" ]; then
+    sid=$(jq -rs --arg d "$PWD" \
+        '[.[] | select(.cwd == $d)] | sort_by(.updatedAt) | last | .sessionId // empty' \
+        "${registry[@]}" 2>/dev/null)
+fi
+if [ -z "$sid" ]; then
+    echo "cgrep: no running Claude session in this tmux window or directory" >&2
+    exit 1
+fi
+transcript=$(find ~/.claude/projects -name "$sid.jsonl" -print -quit)
+if [ -z "$transcript" ]; then
+    echo "cgrep: no transcript yet for session $sid" >&2
+    exit 1
+fi
+
+# Your prompts and Claude's text answers; tool calls and tool output are left out.
+conversation() {
+    jq -r '
+        select(.isSidechain != true and .isMeta != true)
+        | (.message.content // "") as $c
+        | ($c | if type == "string" then . else map(select(.type == "text") | .text) | join("\n") end) as $text
+        | select($text != "")
+        | if .type == "user" and ($text | startswith("<") | not) then "\n━━━━━━ You ━━━━━━\n" + $text
+          elif .type == "assistant" then "\n────── Claude ──────\n" + $text
+          else empty end
+    ' "$transcript" |
+        # Several text blocks of one answer get a single header.
+        awk '/^(━|─)+ (You|Claude) (━|─)+$/ { if ($0 == last) next; last = $0 } { print }'
+}
+
+if [ ! -t 1 ]; then
+    conversation | grep -i -n -- "${pattern:-.}"
+elif [ -n "$pattern" ]; then
+    conversation | less -i "+G?$pattern"
+else
+    conversation | less -i +G
+fi

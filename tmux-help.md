@@ -61,6 +61,7 @@ the second window's view of `main` and disappears when you close that window.
 - `cs [query]`: pick a project; its session starts with `claude -n <project>`
 - `cw <name>`: another named Claude session in a new window, same folder
 - `ca` or `Ctrl+b A`: agent view, every Claude session in one list
+- `cgrep <text>` or `Ctrl+b F`: search this window's Claude conversation (see below)
 
 A **yellow** window in the top bar means Claude finished or is waiting for you there.
 
@@ -127,13 +128,28 @@ at most one bottom pane under a Claude window, only when you want to watch somet
   - `v` starts a selection, `y` copies it
   - `q` leaves scroll mode
 
+## Searching Claude's answers
+
+Scroll mode can't search a Claude window: Claude Code draws its own screen, so
+tmux never gets its history. Search the session's conversation instead:
+
+- `Ctrl+b F`, type the text, Enter: opens the conversation of the Claude in **this window**
+  in a popup, at the latest match. Enter with no text opens it at the end.
+- `cgrep <text>` does the same from a shell, for example in a pane under Claude.
+  Outside tmux it uses the newest Claude session started in the current folder.
+- In the viewer: `n` jumps to the **older** match, `N` to the newer one; `?text` searches again,
+  `g` / `G` go to the start / end, `q` closes it.
+- `cgrep <text> | cat` just prints the matching lines.
+
+It shows your prompts and Claude's answers, not tool output, and the search ignores case.
+
 ## A typical day
 
 1. **Super+T** opens `main`, good for quick shell work.
 2. **`cs credit`** switches to the credit project, with Claude already running.
 3. Second task in parallel? **`cw tests`** opens a new window with another Claude session.
 4. **`Ctrl+b L`** takes you back to the previous session while those run.
-5. A **yellow** window (plus a desktop notification) is done or waiting. **`Ctrl+b w`** jumps there.
+5. A **yellow** window (plus a desktop notification) is done or waiting. Click the notification, or press **`Ctrl+b w`**, to jump there.
 6. **`ca`** shows every Claude session in one list, across projects.
 7. At the end of the day, close the terminal. Everything is still there tomorrow until you reboot.
 
